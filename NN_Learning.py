@@ -122,7 +122,7 @@ checkpoint = ModelCheckpoint(
     mode="min"
 )
 
-model.fit(
+history = model.fit(
     x_train,
     y_train,
     epochs=50,
@@ -132,6 +132,20 @@ model.fit(
 #Тест
 predict_test = model.predict(x_test)
 predict_test = predict_test.flatten()
+
+#График ошибки обучения
+plt.figure()
+
+plt.plot(history.history['loss'], label='Train loss')
+plt.plot(history.history['val_loss'], label='Validation loss')
+
+plt.xlabel('Эпоха')
+plt.ylabel('MSE ошибка')
+plt.title('Ошибка обучения нейросети')
+plt.legend()
+plt.grid(True)
+
+plt.show()
 
 #График
 plt.figure()
