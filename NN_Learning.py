@@ -153,3 +153,5 @@ plt.plot(predict_test, label="NN output (u)")
 plt.plot(y_test.flatten(), label="Teacher PID (u)", alpha=0.5)
 plt.legend()
 plt.title("Сравнение управления (нейросеть и ПИД)")
+
+plt.show()
