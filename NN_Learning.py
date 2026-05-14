@@ -145,7 +145,6 @@ plt.title('Ошибка обучения нейросети')
 plt.legend()
 plt.grid(True)
 
-plt.show()
 
 #График
 plt.figure()
@@ -153,3 +152,5 @@ plt.plot(predict_test, label="NN output (u)")
 plt.plot(y_test.flatten(), label="Teacher PID (u)", alpha=0.5)
 plt.legend()
 plt.title("Сравнение управления (нейросеть и ПИД)")
+
+plt.show()
