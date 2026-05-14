@@ -145,7 +145,6 @@ plt.title('Ошибка обучения нейросети')
 plt.legend()
 plt.grid(True)
 
-plt.show()
 
 #График
 plt.figure()
