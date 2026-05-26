@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from knp_ann2snn.altainn import TernaryDense, heaviside, Clip
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense
 from keras.callbacks import ModelCheckpoint
 
@@ -85,9 +85,9 @@ x_test = data_X[train_idx:]
 y_test = data_Y[train_idx:]
 
 #Модель нейросети
-# Encoder (функция активации хевисайда, размер входа - 5, размер выхода - 16)
+# Encoder (функция активации сигмоида, размер входа - 5, размер выхода - 16)
 encoder = Sequential([
-    Dense(16, activation=heaviside, input_shape=(5,))
+    Dense(16, activation="sigmoid", input_shape=(5,))
 ])
 
 # SNN (функция активации хевисайда, размер входа - 16, размер выхода - 16)
@@ -145,12 +145,20 @@ plt.title('Ошибка обучения нейросети')
 plt.legend()
 plt.grid(True)
 
+plt.show()
 
-#График
+#График управляющего сигнала
 plt.figure()
 plt.plot(predict_test, label="NN output (u)")
 plt.plot(y_test.flatten(), label="Teacher PID (u)", alpha=0.5)
 plt.legend()
 plt.title("Сравнение управления (нейросеть и ПИД)")
+
+# Сохранение кодирующего блока в файл encoder_sin.keras.
+model.layers[0].save("encoder_sin.keras")
+# Сохранение нейронной сети в файл snn_sin.keras.
+model.layers[1].save("snn_sin.keras")
+# Сохранение декодирующего блока в файл decoder_sin.keras.
+model.layers[2].save("decoder_sin.keras")
 
 plt.show()
