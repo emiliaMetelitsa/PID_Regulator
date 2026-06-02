@@ -145,8 +145,6 @@ plt.title('Ошибка обучения нейросети')
 plt.legend()
 plt.grid(True)
 
-plt.show()
-
 #График управляющего сигнала
 plt.figure()
 plt.plot(predict_test, label="NN output (u)")
