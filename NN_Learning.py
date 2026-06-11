@@ -87,7 +87,7 @@ y_test = data_Y[train_idx:]
 #Модель нейросети
 # Encoder (функция активации сигмоида, размер входа - 5, размер выхода - 16)
 encoder = Sequential([
-    Dense(16, activation="sigmoid", input_shape=(5,))
+    Dense(16, activation=heaviside, input_shape=(5,))
 ])
 
 # SNN (функция активации хевисайда, размер входа - 16, размер выхода - 16)
