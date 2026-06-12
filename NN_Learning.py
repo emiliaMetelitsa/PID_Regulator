@@ -6,157 +6,174 @@ from keras.models import Sequential, load_model
 from keras.layers import Dense
 from keras.callbacks import ModelCheckpoint
 
-#Параметры ДПТ
-dt = 0.01 #Шаг по времени
-N = 4000 #Количество элементов внаборе данных
+def main():
+    #Параметры ДПТ
+    dt = 0.01 #Шаг по времени
+    N = 50000 #Количество элементов внаборе данных
 
-#Электрические параметры
-ce = 1.0 #Коэффициент ЭДС
-phi = 1.0 #Магнитный поток
-Ra = 1.0 #Сопротивление якоря
-Rd = 0.2 #Дополнительное сопротивление
-R = Ra + Rd #Общее сопротивление
+    #Электрические параметры
+    ce = 1.0 #Коэффициент ЭДС
+    phi = 1.0 #Магнитный поток
+    Ra = 1.0 #Сопротивление якоря
+    Rd = 0.2 #Дополнительное сопротивление
+    R = Ra + Rd #Общее сопротивление
 
-#Механические параметры
-J = 0.1 #Момент инерции ротора
-cm = 1.0 #Коэффициент момента
-B = 0.3 #Коэффициент вязкого трения
-M_load = 0.0 #Момент нагрузки
+    #Механические параметры
+    J = 0.1 #Момент инерции ротора
+    cm = 1.0 #Коэффициент момента
+    B = 0.3 #Коэффициент вязкого трения
+    M_load = 0.0 #Момент нагрузки
 
-#Ограничение напряжения
-u_max = 10.0
+    #Ограничение напряжения
+    u_max = 10.0
 
-#"Учитель" ПИД
-Kp_true = 2.0 #Пропорциональный коэффициент
-Ki_true = 0.5 #Интегральный коэффициент
-Kd_true = 0.01 #Дифференциальный коэффициент
+    #"Учитель" ПИД
+    Kp_true = 2.0 #Пропорциональный коэффициент
+    Ki_true = 0.5 #Интегральный коэффициент
+    Kd_true = 0.01 #Дифференциальный коэффициент
 
-#Генерация данных
-omega = 0.0 #Текущая угловая скорость
-integral = 0.0 #Интеграл ошибки
-prev_error = 0.0 #Предыдущая ошибка
+    #Генерация данных
+    omega = 0.0 #Текущая угловая скорость
+    integral = 0.0 #Интеграл ошибки
+    prev_error = 0.0 #Предыдущая ошибка
 
-r = 0.0  #Задание скорости
+    r = 0.0  #Задание скорости
 
-#Массивы данных
-data_X = []
-data_Y = []
+    #Массивы данных
+    data_X = []
+    data_Y = []
 
-#Генерация массива данных
-for i in range(N):
+    #Генерация массива данных
+    for i in range(N):
 
-    #Смена скорости каждые 100 шагов
-    if i % 100 == 0:
-        r = np.random.uniform(-2, 2)
+        #Смена скорости каждые 100 шагов
+        if i % 100 == 0:
+            r = np.random.uniform(-2, 2)
 
-    #Ошибка
-    error = r - omega
-    d_error = (error - prev_error) / dt
-    integral += error * dt
+        #Ошибка
+        error = r - omega
+        d_error = (error - prev_error) / dt
+        integral += error * dt
 
-    #ПИД (учитель)
-    u = Kp_true * error + Ki_true * integral + Kd_true * d_error
-    u = np.clip(u, -u_max, u_max)
+        #ПИД (учитель)
+        u = Kp_true * error + Ki_true * integral + Kd_true * d_error
+        u = np.clip(u, -u_max, u_max)
 
-    #ДПТ
-    #Ток
-    Ia = (u - ce * phi * omega) / R
+        #ДПТ
+        #Ток
+        Ia = (u - ce * phi * omega) / R
 
-    #Динамика скорости
-    domega = (cm * phi * Ia - M_load - B * omega) / J
-    omega = omega + dt * domega
+        #Динамика скорости
+        domega = (cm * phi * Ia - M_load - B * omega) / J
+        omega = omega + dt * domega
 
-    #Данные для сети
-    data_X.append([error, d_error, integral, omega, r])
-    data_Y.append([u])
+        #Данные для сети
+        data_X.append([error, d_error, integral, omega, r])
+        data_Y.append([u])
 
-    prev_error = error
+        prev_error = error
 
-data_X = np.array(data_X)
-data_Y = np.array(data_Y)
+    data_X = np.array(data_X)
+    data_Y = np.array(data_Y)
 
-#Разделение на выборки для обучения и теста
-train_idx = 3000
+    #Разделение на выборки для обучения и теста
+    train_idx = 3000
 
-x_train = data_X[:train_idx]
-y_train = data_Y[:train_idx]
+    x_train = data_X[:train_idx]
+    y_train = data_Y[:train_idx]
 
-x_test = data_X[train_idx:]
-y_test = data_Y[train_idx:]
+    x_test = data_X[train_idx:]
+    y_test = data_Y[train_idx:]
 
-#Модель нейросети
-# Encoder (функция активации сигмоида, размер входа - 5, размер выхода - 16)
-encoder = Sequential([
-    Dense(16, activation=heaviside, input_shape=(5,))
-])
+    #Нормализация
+    x_mean = x_train.mean(axis=0)
+    x_std = x_train.std(axis=0)
 
-# SNN (функция активации хевисайда, размер входа - 16, размер выхода - 16)
-snn = Sequential([
-    TernaryDense(
-        16,
-        activation=heaviside,
-        input_shape=(16,),
-        use_bias=False
+    x_std[x_std < 1e-8] = 1.0
+
+    x_train_norm = (x_train - x_mean) / x_std
+    x_test_norm = (x_test - x_mean) / x_std
+
+    #Сохраняем параметры нормализации
+    np.save("x_mean.npy", x_mean)
+    np.save("x_std.npy", x_std)
+
+    #Модель нейросети
+    # Encoder (функция активации сигмоида, размер входа - 5, размер выхода - 16)
+    encoder = Sequential([
+        Dense(16, activation="sigmoid", input_shape=(5,))
+    ])
+
+    # SNN (функция активации хевисайда, размер входа - 16, размер выхода - 16)
+    snn = Sequential([
+        TernaryDense(
+            16,
+            activation=heaviside,
+            input_shape=(16,),
+            use_bias=False
+        )
+    ])
+
+    # Decoder (функция активации , размер входа - 16, размер выхода - 1)
+    decoder = Sequential([
+        Dense(1, activation="linear", input_shape=(16,))
+    ])
+
+    model = Sequential([encoder, snn, decoder])
+
+    #Оптимизатор - Adam, функция потерь - среднеквадратическая ошибка
+    model.compile(
+        optimizer="adam",
+        loss="mse"
     )
-])
 
-# Decoder (функция активации , размер входа - 16, размер выхода - 1)
-decoder = Sequential([
-    Dense(1, activation="linear", input_shape=(16,))
-])
+    #Обучение
+    checkpoint = ModelCheckpoint(
+        "sin_model.keras",
+        monitor="val_loss",
+        verbose=1,
+        save_best_only=True,
+        mode="min"
+    )
 
-model = Sequential([encoder, snn, decoder])
+    history = model.fit(
+        x_train_norm,
+        y_train,
+        epochs=50,
+        validation_data=(x_test, y_test)
+    )
 
-#Оптимизатор - Adam, функция потерь - среднеквадратическая ошибка
-model.compile(
-    optimizer="adam",
-    loss="mse"
-)
+    #Тест
+    predict_test = model.predict(x_test_norm)
+    predict_test = predict_test.flatten()
 
-#Обучение
-checkpoint = ModelCheckpoint(
-    "sin_model.keras",
-    monitor="val_loss",
-    verbose=1,
-    save_best_only=True,
-    mode="min"
-)
+    #График ошибки обучения
+    plt.figure()
 
-history = model.fit(
-    x_train,
-    y_train,
-    epochs=50,
-    validation_data=(x_test, y_test)
-)
+    plt.plot(history.history['loss'], label='Train loss')
+    plt.plot(history.history['val_loss'], label='Validation loss')
 
-#Тест
-predict_test = model.predict(x_test)
-predict_test = predict_test.flatten()
+    plt.xlabel('Эпоха')
+    plt.ylabel('MSE ошибка')
+    plt.title('Ошибка обучения нейросети')
+    plt.legend()
+    plt.grid(True)
 
-#График ошибки обучения
-plt.figure()
+    plt.show()
 
-plt.plot(history.history['loss'], label='Train loss')
-plt.plot(history.history['val_loss'], label='Validation loss')
+    #График управляющего сигнала
+    plt.figure()
+    plt.plot(predict_test, label="NN output (u)")
+    plt.plot(y_test.flatten(), label="Teacher PID (u)", alpha=0.5)
+    plt.legend()
+    plt.title("Сравнение управления (нейросеть и ПИД)")
 
-plt.xlabel('Эпоха')
-plt.ylabel('MSE ошибка')
-plt.title('Ошибка обучения нейросети')
-plt.legend()
-plt.grid(True)
+    # Сохранение кодирующего блока в файл encoder_sin.keras.
+    model.layers[0].save("encoder_sin.keras")
+    # Сохранение нейронной сети в файл snn_sin.keras.
+    model.layers[1].save("snn_sin.keras")
+    # Сохранение декодирующего блока в файл decoder_sin.keras.
+    model.layers[2].save("decoder_sin.keras")
 
-#График управляющего сигнала
-plt.figure()
-plt.plot(predict_test, label="NN output (u)")
-plt.plot(y_test.flatten(), label="Teacher PID (u)", alpha=0.5)
-plt.legend()
-plt.title("Сравнение управления (нейросеть и ПИД)")
-
-# Сохранение кодирующего блока в файл encoder_sin.keras.
-model.layers[0].save("encoder_sin.keras")
-# Сохранение нейронной сети в файл snn_sin.keras.
-model.layers[1].save("snn_sin.keras")
-# Сохранение декодирующего блока в файл decoder_sin.keras.
-model.layers[2].save("decoder_sin.keras")
-
-plt.show()
+if __name__ == "__main__":
+    main()
