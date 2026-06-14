@@ -140,7 +140,7 @@ def main():
         x_train_norm,
         y_train,
         epochs=50,
-        validation_data=(x_test, y_test)
+        validation_data=(x_test, y_test),
         callbacks = [checkpoint]
     )
 
