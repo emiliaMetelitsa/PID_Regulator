@@ -77,7 +77,7 @@ def main():
     data_Y = np.array(data_Y)
 
     #Разделение на выборки для обучения и теста
-    train_idx = 3000
+    train_idx = int(0.8*N)
 
     x_train = data_X[:train_idx]
     y_train = data_Y[:train_idx]
@@ -141,6 +141,7 @@ def main():
         y_train,
         epochs=50,
         validation_data=(x_test, y_test)
+        callbacks = [checkpoint]
     )
 
     #Тест
