@@ -154,7 +154,7 @@ def main():
     )
 
     #Тест
-    predict_test = model.predict(x_test_norm)
+    predict_test = best_model.predict(x_test_norm)
     predict_test = predict_test.flatten()
 
     #График ошибки обучения
