@@ -190,6 +190,21 @@ def main():
             if k % REFERENCE_PERIOD == 0:
                 r = np.random.uniform(0.2,2.0)
 
+                #ТЕСТ
+                print()
+                print("REFERENCE =", r)
+
+                print("ENCODER")
+                print(np.round(encoded[0], 3))
+
+                print("SOFTWARE SNN")
+                print(
+                    snn_model.predict_on_batch(encoded)
+                )
+
+                print("HARDWARE SPIKES")
+                print(spikes_idx)
+
             # ПИД
             if use_noise:
                 omega_pid_meas = (omega_pid + np.random.normal(0, NOISE_STD))
