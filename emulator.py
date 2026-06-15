@@ -236,32 +236,11 @@ def main():
 
             ###
             # ТЕСТ
-            print("REFERENCE =", r)
+            print(encoded)
 
-            print("INPUT")
-            print(np.round(x_nn_norm[0], 3))
+            print(snn_model.predict_on_batch(encoded))
 
-            print("ENCODER")
-            print(np.round(encoded[0], 3))
-
-            snn_sw = snn_model.predict_on_batch(encoded)
-
-            print("SOFTWARE SNN")
-            print(np.round(snn_sw[0], 3))
-
-            u_sw = decoder.predict_on_batch(snn_sw)
-
-            print("SOFTWARE FULL MODEL")
-            print(float(u_sw[0][0]))
-
-            print("HARDWARE SPIKES")
-            print(spikes_idx)
-
-            u_hw = decoded
-
-            print("HARDWARE FULL MODEL")
-            print(float(u_hw[0][0]))
-
+            print(altai.get_spikes())
             ###
 
             u_snn = float(decoded[0][0])
