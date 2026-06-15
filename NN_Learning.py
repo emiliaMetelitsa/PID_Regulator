@@ -47,8 +47,8 @@ def main():
     for i in range(N):
 
         #Смена скорости каждые 100 шагов
-        if i % 100 == 0:
-            r = np.random.uniform(-2, 2)
+        if i % 500 == 0:
+            r = np.random.uniform(0.2, 2)
 
         #Ошибка
         error = r - omega
@@ -140,8 +140,17 @@ def main():
         x_train_norm,
         y_train,
         epochs=50,
-        validation_data=(x_test, y_test),
+        validation_data=(x_test_norm, y_test),
         callbacks = [checkpoint]
+    )
+
+    best_model = load_model(
+        "sin_model.keras",
+        custom_objects={
+            "TernaryDense": TernaryDense,
+            "heaviside_mod": heaviside,
+            "Clip": Clip
+        }
     )
 
     #Тест
@@ -170,11 +179,11 @@ def main():
     plt.title("Сравнение управления (нейросеть и ПИД)")
 
     # Сохранение кодирующего блока в файл encoder_sin.keras.
-    model.layers[0].save("encoder_sin.keras")
+    best_model.layers[0].save("encoder_sin.keras")
     # Сохранение нейронной сети в файл snn_sin.keras.
-    model.layers[1].save("snn_sin.keras")
+    best_model.layers[1].save("snn_sin.keras")
     # Сохранение декодирующего блока в файл decoder_sin.keras.
-    model.layers[2].save("decoder_sin.keras")
+    best_model.layers[2].save("decoder_sin.keras")
 
 if __name__ == "__main__":
     main()
