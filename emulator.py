@@ -190,21 +190,6 @@ def main():
             if k % REFERENCE_PERIOD == 0:
                 r = np.random.uniform(0.2,2.0)
 
-                #ТЕСТ
-                print()
-                print("REFERENCE =", r)
-
-                print("ENCODER")
-                print(np.round(encoded[0], 3))
-
-                print("SOFTWARE SNN")
-                print(
-                    snn_model.predict_on_batch(encoded)
-                )
-
-                print("HARDWARE SPIKES")
-                print(spikes_idx)
-
             # ПИД
             if use_noise:
                 omega_pid_meas = (omega_pid + np.random.normal(0, NOISE_STD))
@@ -235,14 +220,10 @@ def main():
             x_nn_norm = (x_nn - x_mean) / x_std
 
             # Encoder
-            encoded = (
-                encoder.predict_on_batch(x_nn_norm)
-            )
+            encoded = (encoder.predict_on_batch(x_nn_norm))
 
             # Altai
-            altai.prepare_spikes(
-                encoded
-            )
+            altai.prepare_spikes(encoded)
 
             altai.start_ticks(1)
             spikes_idx = (altai.get_spikes())
@@ -251,11 +232,37 @@ def main():
             spikes[spikes_idx] = 1
 
             # Decoder
-            decoded = (
-                decoder.predict_on_batch(
-                    spikes.reshape(1,-1)
-                )
-            )
+            decoded = (decoder.predict_on_batch(spikes.reshape(1,-1)))
+
+            ###
+            # ТЕСТ
+            print("REFERENCE =", r)
+
+            print("INPUT")
+            print(np.round(x_nn_norm[0], 3))
+
+            print("ENCODER")
+            print(np.round(encoded[0], 3))
+
+            snn_sw = snn_model.predict_on_batch(encoded)
+
+            print("SOFTWARE SNN")
+            print(np.round(snn_sw[0], 3))
+
+            u_sw = decoder.predict_on_batch(snn_sw)
+
+            print("SOFTWARE FULL MODEL")
+            print(float(u_sw[0][0]))
+
+            print("HARDWARE SPIKES")
+            print(spikes_idx)
+
+            u_hw = decoded
+
+            print("HARDWARE FULL MODEL")
+            print(float(u_hw[0][0]))
+
+            ###
 
             u_snn = float(decoded[0][0])
 
