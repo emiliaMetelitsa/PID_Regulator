@@ -225,7 +225,7 @@ def main():
             # Altai
             altai.prepare_spikes(encoded)
 
-            altai.start_ticks(1)
+            altai.start_ticks(100)
             spikes_idx = (altai.get_spikes())
             spikes_idx = spikes_idx[spikes_idx != -2147483647]
             spikes = np.zeros(SNN_OUTPUT_SHAPE)
@@ -233,15 +233,6 @@ def main():
 
             # Decoder
             decoded = (decoder.predict_on_batch(spikes.reshape(1,-1)))
-
-            ###
-            # ТЕСТ
-            print(encoded)
-
-            print(snn_model.predict_on_batch(encoded))
-
-            print(altai.get_spikes())
-            ###
 
             u_snn = float(decoded[0][0])
 
