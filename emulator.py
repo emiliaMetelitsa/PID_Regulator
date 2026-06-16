@@ -225,7 +225,7 @@ def main():
             # Altai
             altai.prepare_spikes(encoded)
 
-            altai.start_ticks(100)
+            altai.start_ticks(10)
             spikes_idx = (altai.get_spikes())
             spikes_idx = spikes_idx[spikes_idx != -2147483647]
             spikes = np.zeros(SNN_OUTPUT_SHAPE)
