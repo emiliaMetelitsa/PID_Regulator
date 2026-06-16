@@ -234,6 +234,8 @@ def main():
             # Decoder
             decoded = (decoder.predict_on_batch(spikes.reshape(1,-1)))
 
+            altai.clear_input()
+
             u_snn = float(decoded[0][0])
 
             u_snn = np.clip(u_snn,-u_max,u_max)
