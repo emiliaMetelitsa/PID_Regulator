@@ -223,9 +223,9 @@ def main():
             encoded = (encoder.predict_on_batch(x_nn_norm))
 
             # Altai
-            altai.prepare_spikes(encoded)
+            altai.prepare_spikes((encoded > 0.5).astype(np.int32))
 
-            altai.start_ticks(10)
+            altai.start_ticks(1)
             spikes_idx = (altai.get_spikes())
             spikes_idx = spikes_idx[spikes_idx != -2147483647]
             spikes = np.zeros(SNN_OUTPUT_SHAPE)
