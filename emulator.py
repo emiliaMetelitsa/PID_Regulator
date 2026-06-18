@@ -223,7 +223,7 @@ def main():
             encoded = (encoder.predict_on_batch(x_nn_norm))
 
             # Altai
-            altai.prepare_spikes((encoded > 0.5).astype(np.int32))
+            altai.prepare_spikes((encoded*100).astype(np.int32))
 
             altai.start_ticks(1)
             spikes_idx = (altai.get_spikes())
