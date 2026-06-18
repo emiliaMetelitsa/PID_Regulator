@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from knp_ann2snn.altainn import TernaryDense, heaviside, Clip
 from keras.models import Sequential, load_model
 from keras.layers import Dense
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 
 def main():
     #Параметры ДПТ
@@ -136,12 +136,18 @@ def main():
         mode="min"
     )
 
+    early_stop = EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        restore_best_weights=True
+    )
+
     history = model.fit(
         x_train_norm,
         y_train,
         epochs=50,
         validation_data=(x_test_norm, y_test),
-        callbacks = [checkpoint]
+        callbacks = [checkpoint, early_stop]
     )
 
     best_model = load_model(
