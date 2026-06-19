@@ -163,6 +163,56 @@ def main():
     predict_test = best_model.predict(x_test_norm)
     predict_test = predict_test.flatten()
 
+    # Моделирование двигателя на тестовой выборке
+
+    omega_pid = []
+    omega_nn = []
+    r_history = []
+
+    # Начальные условия
+    omega_pid_curr = 0.0
+    omega_nn_curr = 0.0
+
+    integral_pid = 0.0
+    prev_error_pid = 0.0
+
+    for i in range(len(x_test)):
+        r = x_test[i, 4]  # целевая скорость
+
+        # ПИД
+        error_pid = r - omega_pid_curr
+        d_error_pid = (error_pid - prev_error_pid) / dt
+        integral_pid += error_pid * dt
+
+        u_pid = Kp_true * error_pid + Ki_true * integral_pid + Kd_true * d_error_pid
+
+        u_pid = np.clip(u_pid, -u_max, u_max)
+
+        Ia_pid = (u_pid - ce * phi * omega_pid_curr) / R
+
+        domega_pid = (cm * phi * Ia_pid - M_load - B * omega_pid_curr) / J
+
+        omega_pid_curr += dt * domega_pid
+
+        prev_error_pid = error_pid
+
+        # Нейросеть
+        u_nn = predict_test[i]
+
+        Ia_nn = (u_nn - ce * phi * omega_nn_curr) / R
+
+        domega_nn = (cm * phi * Ia_nn - M_load - B * omega_nn_curr) / J
+
+        omega_nn_curr += dt * domega_nn
+
+        omega_pid.append(omega_pid_curr)
+        omega_nn.append(omega_nn_curr)
+        r_history.append(r)
+
+    omega_pid = np.array(omega_pid)
+    omega_nn = np.array(omega_nn)
+    r_history = np.array(r_history)
+
     #График ошибки обучения
     plt.figure()
 
@@ -174,7 +224,7 @@ def main():
     plt.title('Ошибка обучения нейросети')
     plt.legend()
     plt.grid(True)
-
+    plt.savefig("learning_err.png", dpi=300)
     plt.show()
 
     #График управляющего сигнала
@@ -183,6 +233,21 @@ def main():
     plt.plot(y_test.flatten(), label="Teacher PID (u)", alpha=0.5)
     plt.legend()
     plt.title("Сравнение управления (нейросеть и ПИД)")
+    plt.savefig("learning_control.png", dpi=300)
+    plt.show()
+
+    # График угловой скорости
+    plt.figure(figsize=(12, 6))
+    plt.plot(r_history,label="Целевая скорость r",linewidth=2)
+    plt.plot(omega_pid,label="Скорость с ПИД")
+    plt.plot(omega_nn,label="Скорость с нейросетью")
+    plt.xlabel("Шаг")
+    plt.ylabel("Угловая скорость")
+    plt.title("Сравнение качества регулирования")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig("learning_tracking.png", dpi=300)
+    plt.show()
 
     # Сохранение кодирующего блока в файл encoder_sin.keras.
     best_model.layers[0].save("encoder_sin.keras")
