@@ -45,7 +45,7 @@ def main():
     NOISE_STD = 0.05
 
     # Размер выхода SNN
-    SNN_OUTPUT_SHAPE = 64
+    SNN_OUTPUT_SHAPE = 32
 
     # Загрузка Altai
     altai = Altai()
