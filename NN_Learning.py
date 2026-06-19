@@ -101,22 +101,22 @@ def main():
     #Модель нейросети
     # Encoder (функция активации сигмоида, размер входа - 5, размер выхода - 16)
     encoder = Sequential([
-        Dense(64, activation="sigmoid", input_shape=(5,))
+        Dense(32, activation="sigmoid", input_shape=(5,))
     ])
 
     # SNN (функция активации хевисайда, размер входа - 16, размер выхода - 16)
     snn = Sequential([
         TernaryDense(
-            64,
+            32,
             activation=heaviside,
-            input_shape=(64,),
+            input_shape=(32,),
             use_bias=False
         )
     ])
 
     # Decoder (функция активации , размер входа - 16, размер выхода - 1)
     decoder = Sequential([
-        Dense(1, activation="linear", input_shape=(64,))
+        Dense(1, activation="linear", input_shape=(32,))
     ])
 
     model = Sequential([encoder, snn, decoder])
