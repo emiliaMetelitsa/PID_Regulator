@@ -11,7 +11,7 @@ from tqdm import tqdm
 def main():
     # Параметры ДПТ
     dt = 0.01
-    Tsim = 10.0
+    Tsim = 30.0
     N = int(Tsim / dt)
 
     # Электрическая часть
@@ -38,8 +38,8 @@ def main():
     # Параметры эксперимента
     N_EXPERIMENTS = 10
 
-    # Смена задания каждыую секунду
-    REFERENCE_PERIOD = 100
+    # Смена задания каждую секунду
+    REFERENCE_PERIOD = 300
 
     # Шум измерения
     NOISE_STD = 0.05
