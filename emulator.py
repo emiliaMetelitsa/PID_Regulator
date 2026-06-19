@@ -11,7 +11,7 @@ from tqdm import tqdm
 def main():
     # Параметры ДПТ
     dt = 0.01
-    Tsim = 30.0
+    Tsim = 10.0
     N = int(Tsim / dt)
 
     # Электрическая часть
