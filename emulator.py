@@ -38,11 +38,11 @@ def main():
     # Параметры эксперимента
     N_EXPERIMENTS = 10
 
-    # Смена задания каждую секунду
-    REFERENCE_PERIOD = 300
-
     # Шум измерения
     NOISE_STD = 0.05
+
+    # Величины уставки
+    references = np.linspace(0.2, 2.0, N_EXPERIMENTS)
 
     # Размер выхода SNN
     SNN_OUTPUT_SHAPE = 32
@@ -149,13 +149,21 @@ def main():
     snn_clean_results = []
     snn_noise_results = []
 
-    # Данные для графика первого эксперимента
+    # Данные для графика первого эксперимента без шума
     example_time = None
     example_reference = None
     example_pid = None
     example_snn = None
     example_u_pid = None
     example_u_snn = None
+
+    # Данные для графика первого эксперимента с шумом
+    example_time_noise = None
+    example_reference_noise = None
+    example_pid_noise = None
+    example_snn_noise = None
+    example_u_pid_noise = None
+    example_u_snn_noise = None
 
     # Один эксперимент
     def run_experiment(experiment_id, use_noise=False):
@@ -180,15 +188,11 @@ def main():
         u_snn_arr = []
 
         # Начальная уставка
-        r = np.random.uniform(0.2, 2.0)
+        r = references[experiment_id]
 
         # Главный цикл
         for k in range(N):
             t = k * dt
-
-            # Случайная уставка
-            if k % REFERENCE_PERIOD == 0:
-                r = np.random.uniform(0.2,2.0)
 
             # ПИД
             if use_noise:
@@ -335,6 +339,17 @@ def main():
             result["snn_metrics"]["SettlingTime"],
             result["snn_metrics"]["RMSE"]])
 
+        # Сохраняем первый запуск
+        if exp_id == 0:
+            example_time_noise = result["time"]
+            example_reference_noise = result["reference"]
+
+            example_pid_noise = result["omega_pid"]
+            example_snn_noise = result["omega_snn"]
+
+            example_u_pid_noise = result["u_pid"]
+            example_u_snn_noise = result["u_snn"]
+
     # Dataframe
     columns = ["Experiment", "Overshoot (%)", "Rise Time (s)", "Settling Time (s)", "RMSE"]
 
@@ -391,7 +406,7 @@ def main():
     pid_noise_df.to_csv("pid_noise_results.csv",index=False)
     snn_noise_df.to_csv("snn_noise_results.csv",index=False)
 
-    # График скорости
+    # График скорости без шума
     plt.figure(figsize=(12, 6))
     plt.plot(example_time, example_reference, "k--", linewidth=2, label="Reference")
     plt.plot(example_time, example_pid, label="PID")
@@ -405,7 +420,7 @@ def main():
     plt.show()
     plt.savefig("tracking.png",dpi=300)
 
-    # График управляющего сигнала
+    # График управляющего сигнала без шума
     plt.figure(figsize=(12, 6))
     plt.plot(example_time, example_u_pid, label="PID control")
     plt.plot(example_time, example_u_snn, label="SNN control")
@@ -417,6 +432,33 @@ def main():
     plt.tight_layout()
     plt.show()
     plt.savefig("control.png",dpi=300)
+
+    # График скорости с шумом
+    plt.figure(figsize=(12, 6))
+    plt.plot(example_time_noise, example_reference_noise, "k--", linewidth=2, label="Reference")
+    plt.plot(example_time_noise, example_pid_noise, label="PID + noise")
+    plt.plot(example_time_noise, example_snn_noise,label="SNN + noise")
+    plt.grid(True)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Angular velocity")
+    plt.title("Reference Tracking (with measurement noise)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("tracking_noise.png", dpi=300)
+    plt.show()
+
+    # График управляющего сигнала с шумом
+    plt.figure(figsize=(12, 6))
+    plt.plot(example_time_noise, example_u_pid_noise, label="PID control + noise")
+    plt.plot(example_time_noise, example_u_snn_noise, label="SNN control + noise")
+    plt.grid(True)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Control signal")
+    plt.title("Control Signal Comparison (with measurement noise)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("control_noise.png", dpi=300)
+    plt.show()
 
 if __name__ == "__main__":
     main()
