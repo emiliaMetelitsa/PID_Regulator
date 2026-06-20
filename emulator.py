@@ -11,7 +11,7 @@ from tqdm import tqdm
 def main():
     # Параметры ДПТ
     dt = 0.01
-    Tsim = 10.0
+    Tsim = 20.0
     N = int(Tsim / dt)
 
     # Электрическая часть
@@ -84,7 +84,7 @@ def main():
 
         return np.sqrt(np.mean((reference - response) ** 2))
 
-    # Анализ одного переходного процесса
+    # Анализ метрик
     def transition_metrics(signal, reference, dt):
         signal = np.array(signal)
         final_value = reference
@@ -93,7 +93,7 @@ def main():
         peak = np.max(signal)
 
         if abs(final_value) > 1e-6:
-            overshoot = ((peak - final_value) / abs(final_value)) * 100
+            overshoot = max(0, ((peak - final_value) / abs(final_value)) * 100)
         else:
             overshoot = np.nan
 
@@ -118,7 +118,7 @@ def main():
 
         return (overshoot,rise_time,settling_time)
 
-    # Анализ всех переходов
+    # Анализ эксперимента
     def evaluate_controller(response,reference,dt):
         target = reference[-1]
 
@@ -134,21 +134,9 @@ def main():
     snn_clean_results = []
     snn_noise_results = []
 
-    # Данные для графика первого эксперимента без шума
-    example_time = None
-    example_reference = None
-    example_pid = None
-    example_snn = None
-    example_u_pid = None
-    example_u_snn = None
-
-    # Данные для графика первого эксперимента с шумом
-    example_time_noise = None
-    example_reference_noise = None
-    example_pid_noise = None
-    example_snn_noise = None
-    example_u_pid_noise = None
-    example_u_snn_noise = None
+    # Данные для графиков экспериментов
+    all_clean_results = []
+    all_noise_results = []
 
     # Один эксперимент
     def run_experiment(experiment_id, use_noise=False):
@@ -280,14 +268,8 @@ def main():
             result["snn_metrics"]["RMSE"]
         ])
 
-        # Сохраняем первый запуск
-        if exp_id == 0:
-            example_time = (result["time"])
-            example_reference = (result["reference"])
-            example_pid = (result["omega_pid"])
-            example_snn = (result["omega_snn"])
-            example_u_pid = (result["u_pid"])
-            example_u_snn = (result["u_snn"])
+        # Сохраняем запуск
+        all_clean_results.append(result)
 
     # Эксперименты с шумом
     print()
@@ -311,16 +293,8 @@ def main():
             result["snn_metrics"]["SettlingTime"],
             result["snn_metrics"]["RMSE"]])
 
-        # Сохраняем первый запуск
-        if exp_id == 0:
-            example_time_noise = result["time"]
-            example_reference_noise = result["reference"]
-
-            example_pid_noise = result["omega_pid"]
-            example_snn_noise = result["omega_snn"]
-
-            example_u_pid_noise = result["u_pid"]
-            example_u_snn_noise = result["u_snn"]
+        # Сохраняем запуск
+        all_noise_results.append(result)
 
     # Dataframe
     columns = ["Experiment", "Overshoot (%)", "Rise Time (s)", "Settling Time (s)", "RMSE"]
@@ -378,58 +352,111 @@ def main():
     pid_noise_df.to_csv("pid_noise_results.csv",index=False)
     snn_noise_df.to_csv("snn_noise_results.csv",index=False)
 
-    # График скорости без шума
-    plt.figure(figsize=(12, 6))
-    plt.plot(example_time, example_reference, "k--", linewidth=2, label="Reference")
-    plt.plot(example_time, example_pid, label="PID")
-    plt.plot(example_time, example_snn, label="SNN")
-    plt.grid(True)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Angular velocity")
-    plt.title("Reference Tracking")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-    plt.savefig("tracking.png",dpi=300)
+    # График скоростей без шума
+    fig, axes = plt.subplots(5, 2, figsize=(14, 16))
+    axes = axes.flatten()
+    for i, result in enumerate(all_clean_results):
+        axes[i].plot(
+            result["time"],
+            result["reference"],
+            "k--",
+            label="Reference"
+        )
+        axes[i].plot(
+            result["time"],
+            result["omega_pid"],
+            label="PID"
+        )
+        axes[i].plot(
+            result["time"],
+            result["omega_snn"],
+            label="SNN"
+        )
+        axes[i].set_title(
+            f"Experiment {i + 1} (r={references[i]:.1f})"
+        )
+        axes[i].grid(True)
+        if i == 0:
+            axes[i].legend()
 
-    # График управляющего сигнала без шума
-    plt.figure(figsize=(12, 6))
-    plt.plot(example_time, example_u_pid, label="PID control")
-    plt.plot(example_time, example_u_snn, label="SNN control")
-    plt.grid(True)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Control signal")
-    plt.title("Control Signal Comparison")
-    plt.legend()
     plt.tight_layout()
-    plt.show()
-    plt.savefig("control.png",dpi=300)
-
-    # График скорости с шумом
-    plt.figure(figsize=(12, 6))
-    plt.plot(example_time_noise, example_reference_noise, "k--", linewidth=2, label="Reference")
-    plt.plot(example_time_noise, example_pid_noise, label="PID + noise")
-    plt.plot(example_time_noise, example_snn_noise,label="SNN + noise")
-    plt.grid(True)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Angular velocity")
-    plt.title("Reference Tracking (with measurement noise)")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig("tracking_noise.png", dpi=300)
+    plt.savefig("tracking.png", dpi=300)
     plt.show()
 
-    # График управляющего сигнала с шумом
-    plt.figure(figsize=(12, 6))
-    plt.plot(example_time_noise, example_u_pid_noise, label="PID control + noise")
-    plt.plot(example_time_noise, example_u_snn_noise, label="SNN control + noise")
-    plt.grid(True)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Control signal")
-    plt.title("Control Signal Comparison (with measurement noise)")
-    plt.legend()
+    # График управляющих сигналов без шума
+    fig, axes = plt.subplots(5, 2, figsize=(14, 16))
+    axes = axes.flatten()
+    for i, result in enumerate(all_clean_results):
+        axes[i].plot(
+            result["time"],
+            result["u_pid"],
+            label="PID"
+        )
+        axes[i].plot(
+            result["time"],
+            result["u_snn"],
+            label="SNN"
+        )
+        axes[i].set_title(
+            f"Experiment {i + 1} (r={references[i]:.1f})"
+        )
+        axes[i].grid(True)
+
+        if i == 0:
+            axes[i].legend()
     plt.tight_layout()
-    plt.savefig("control_noise.png", dpi=300)
+    plt.savefig("all_control.png", dpi=300)
+    plt.show()
+
+    # График скоростей с шумом
+    fig, axes = plt.subplots(5, 2, figsize=(14, 16))
+    axes = axes.flatten()
+    for i, result in enumerate(all_noise_results):
+        axes[i].plot(
+            result["time"],
+            result["reference"],
+            "k--",
+            label="Reference"
+        )
+        axes[i].plot(
+            result["time"],
+            result["omega_pid"],
+            label="PID"
+        )
+        axes[i].plot(
+            result["time"],
+            result["omega_snn"],
+            label="SNN"
+        )
+        axes[i].set_title(
+            f"Experiment {i + 1} (r={references[i]:.1f})"
+        )
+        axes[i].grid(True)
+        if i == 0:
+            axes[i].legend()
+
+    # График управляющих сигналов с шумом
+    fig, axes = plt.subplots(5, 2, figsize=(14, 16))
+    axes = axes.flatten()
+    for i, result in enumerate(all_noise_results_results):
+        axes[i].plot(
+            result["time"],
+            result["u_pid"],
+            label="PID"
+        )
+        axes[i].plot(
+            result["time"],
+            result["u_snn"],
+            label="SNN"
+        )
+        axes[i].set_title(
+            f"Experiment {i + 1} (r={references[i]:.1f})"
+        )
+        axes[i].grid(True)
+        if i == 0:
+            axes[i].legend()
+    plt.tight_layout()
+    plt.savefig("all_control.png", dpi=300)
     plt.show()
 
 if __name__ == "__main__":
