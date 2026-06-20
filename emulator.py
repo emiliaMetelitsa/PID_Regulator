@@ -119,29 +119,14 @@ def main():
         return (overshoot,rise_time,settling_time)
 
     # Анализ всех переходов
-    def evaluate_controller(response,reference,dt,reference_period):
-        overshoots = []
-        rises = []
-        settlings = []
+    def evaluate_controller(response,reference,dt):
+        target = reference[-1]
 
-        # Ищем все скачки задания
-        for start in range(reference_period, len(reference),reference_period):
-            stop = min(start + reference_period,len(reference))
-            segment = response[start:stop]
-            target = reference[start]
+        overshoot, rise_time, settling_time = transition_metrics(response, target, dt)
 
-            os, rt, st = transition_metrics(segment,target,dt)
+        rmse = calculate_rmse(reference, response)
 
-            if not np.isnan(os):
-                overshoots.append(os)
-            if not np.isnan(rt):
-                rises.append(rt)
-            if not np.isnan(st):
-                settlings.append(st)
-
-        rmse = calculate_rmse(reference,response)
-
-        return {"Overshoot": np.mean(overshoots), "RiseTime": np.mean(rises), "SettlingTime": np.mean(settlings), "RMSE":rmse}
+        return {"Overshoot": overshoot, "RiseTime": rise_time, "SettlingTime": settling_time, "RMSE": rmse}
 
     # Таблицы результатов
     pid_clean_results = []
@@ -257,22 +242,9 @@ def main():
             u_snn_arr.append(u_snn)
 
         # Метрики
-        pid_metrics = (
-            evaluate_controller(
-                omega_pid_arr,
-                reference_arr,
-                dt,
-                REFERENCE_PERIOD
-            )
-        )
-        snn_metrics = (
-            evaluate_controller(
-                omega_snn_arr,
-                reference_arr,
-                dt,
-                REFERENCE_PERIOD
-            )
-        )
+        pid_metrics = (evaluate_controller(omega_pid_arr, reference_arr,dt))
+        snn_metrics = (evaluate_controller(omega_snn_arr,reference_arr,dt))
+
         return {
             "time": time_arr,
             "reference": reference_arr,
