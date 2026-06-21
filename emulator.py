@@ -438,7 +438,7 @@ def main():
     # График управляющих сигналов с шумом
     fig, axes = plt.subplots(5, 2, figsize=(14, 16))
     axes = axes.flatten()
-    for i, result in enumerate(all_noise_results_results):
+    for i, result in enumerate(all_noise_results):
         axes[i].plot(
             result["time"],
             result["u_pid"],
