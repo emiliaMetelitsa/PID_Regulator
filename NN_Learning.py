@@ -37,11 +37,20 @@ def main():
     integral = 0.0 #Интеграл ошибки
     prev_error = 0.0 #Предыдущая ошибка
 
-    r = 0.0  #Задание скорости
+    r = 1.0  #Задание скорости
 
     #Массивы данных
     data_X = []
     data_Y = []
+
+    #Текущие параметры ДПТ
+    J_curr = J
+    B_curr = B
+    R_curr = R
+    M_load_curr = M_load
+
+    #Уровень шума
+    noise_std = 0.0
 
     #Генерация массива данных
     for i in range(N):
@@ -50,28 +59,52 @@ def main():
         if i % 2000 == 0:
             r = np.random.uniform(0.2, 2)
 
-        #Ошибка
-        error = r - omega
-        d_error = (error - prev_error) / dt
-        integral += error * dt
+            # Новый ПИД
+            Kp = np.random.uniform(1.5, 3.0)
+            Ki = np.random.uniform(0.2, 0.8)
+            Kd = np.random.uniform(0.005, 0.03)
 
-        #ПИД (учитель)
-        u = Kp_true * error + Ki_true * integral + Kd_true * d_error
-        u = np.clip(u, -u_max, u_max)
+            # Новый двигатель
+            J_curr = np.random.uniform(0.08, 0.12)
+            B_curr = np.random.uniform(0.2, 0.4)
+            R_curr = np.random.uniform(1.0, 1.4)
 
-        #ДПТ
-        #Ток
-        Ia = (u - ce * phi * omega) / R
+            # Случайная нагрузка
+            M_load_curr = np.random.uniform(0.0, 0.2)
 
-        #Динамика скорости
-        domega = (cm * phi * Ia - M_load - B * omega) / J
-        omega = omega + dt * domega
+            # Шум датчика
+            noise_std = np.random.uniform(0.0, 0.05)
 
-        #Данные для сети
-        data_X.append([error, d_error, integral, omega, r])
-        data_Y.append([u])
+            # Измеренная скорость
+            omega_meas = omega + np.random.normal(0, noise_std)
 
-        prev_error = error
+            # Ошибка
+            error = r - omega_meas
+
+            # Производная ошибки
+            d_error = (error - prev_error) / dt
+
+            # Интеграл
+            integral += error * dt
+
+            # Учитель-ПИД
+            u = (Kp * error + Ki * integral + Kd * d_error)
+
+            u = np.clip(u, -u_max, u_max)
+
+            # Электрическая модель
+            Ia = (u - ce * phi * omega) / R_curr
+
+            # Механическая модель
+            domega = (cm * phi * Ia - B_curr * omega - M_load_curr) / J_curr
+
+            omega += dt * domega
+
+            data_X.append([error, d_error, integral, omega_meas, r])
+
+            data_Y.append([u])
+
+            prev_error = error
 
     data_X = np.array(data_X)
     data_Y = np.array(data_Y)
