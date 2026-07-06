@@ -37,7 +37,7 @@ def main():
     integral = 0.0 #Интеграл ошибки
     prev_error = 0.0 #Предыдущая ошибка
 
-    r = 1.0  #Задание скорости
+    r = 0.0  #Задание скорости
 
     #Массивы данных
     data_X = []
@@ -75,36 +75,36 @@ def main():
             # Шум датчика
             noise_std = np.random.uniform(0.0, 0.05)
 
-            # Измеренная скорость
-            omega_meas = omega + np.random.normal(0, noise_std)
-
-            # Ошибка
-            error = r - omega_meas
-
-            # Производная ошибки
-            d_error = (error - prev_error) / dt
-
-            # Интеграл
-            integral += error * dt
-
-            # Учитель-ПИД
-            u = (Kp * error + Ki * integral + Kd * d_error)
-
-            u = np.clip(u, -u_max, u_max)
-
-            # Электрическая модель
-            Ia = (u - ce * phi * omega) / R_curr
-
-            # Механическая модель
-            domega = (cm * phi * Ia - B_curr * omega - M_load_curr) / J_curr
-
-            omega += dt * domega
-
-            data_X.append([error, d_error, integral, omega_meas, r])
-
-            data_Y.append([u])
-
-            prev_error = error
+        # Измеренная скорость
+        omega_meas = omega + np.random.normal(0, noise_std)
+    
+        # Ошибка
+        error = r - omega_meas
+    
+        # Производная ошибки
+        d_error = (error - prev_error) / dt
+    
+        # Интеграл
+        integral += error * dt
+    
+        # Учитель-ПИД
+        u = (Kp * error + Ki * integral + Kd * d_error)
+    
+        u = np.clip(u, -u_max, u_max)
+    
+        # Электрическая модель
+        Ia = (u - ce * phi * omega) / R_curr
+    
+        # Механическая модель
+        domega = (cm * phi * Ia - B_curr * omega - M_load_curr) / J_curr
+    
+        omega += dt * domega
+    
+        data_X.append([error, d_error, integral, omega_meas, r])
+    
+        data_Y.append([u])
+    
+        prev_error = error
 
     data_X = np.array(data_X)
     data_Y = np.array(data_Y)
