@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from collections import deque
 
 def main():
     # Параметры ДПТ
@@ -30,11 +31,6 @@ def main():
     # Ограничение управления
     u_max = 10.0
 
-    # Параметры ПИД
-    Kp = 2.0
-    Ki = 0.5
-    Kd = 0.01
-
     # Параметры эксперимента
     N_EXPERIMENTS = 10
 
@@ -45,7 +41,10 @@ def main():
     references = np.linspace(0.2, 2.0, N_EXPERIMENTS)
 
     # Размер выхода SNN
-    SNN_OUTPUT_SHAPE = 32
+    SNN_OUTPUT_SHAPE = 64
+
+    # Окно признаков
+    HISTORY = 10
 
     # Загрузка Altai
     altai = Altai()
@@ -128,6 +127,51 @@ def main():
 
         return {"Overshoot": overshoot, "RiseTime": rise_time, "SettlingTime": settling_time, "RMSE": rmse}
 
+    #Адаптивный ПИД регулятор
+    def adaptive_pid(error, d_error, integral, Kp0 = 2.0, Ki0 = 0.5, Kd0 = 0.01):
+        abs_e = abs(error)
+        abs_de = abs(d_error)
+        abs_i = abs(integral)
+
+        # Пропорциональный коэффициент
+        # Большая ошибка -> увеличить Kp
+        kp = Kp0 * (1.0 + 0.7 * np.tanh(abs_e))
+
+        # Если начинается колебание, немного уменьшаем Kp
+        kp *= (1.0 + 0.3 * np.tanh(abs_e))
+        kp *= (1.0 - 0.2 * np.tanh(abs_de / 50))
+
+        # уменьшаем Kp возле уставки
+        if error * d_error < 0:
+            kp *= 0.7
+
+        # Интегральный коэффициент
+        # Чем больше накопленная ошибка, тем сильнее интегратор.
+        ki = Ki0 * (1.0 + 0.5 * np.tanh(abs_i))
+
+        # При быстром изменении ошибки уменьшаем интегратор
+        ki /= (1.0 + 0.4 * np.tanh(abs_de))
+
+        # защита от разгона интегратора
+        if abs(error) > 0.5:
+            ki *= 0.5
+
+        # Дифференциальный коэффициент
+        # Если ошибка быстро меняется, увеличиваем демпфирование.
+        kd = Kd0 * (1.0 + 1.2 * np.tanh(abs_de))
+
+        # Если ошибка практически исчезла, дифференциальная часть почти не нужна.
+        kd *= (0.5 + 0.5 * np.tanh(abs_e))
+
+        # Ограничения
+        kp = np.clip(kp, 0.5 * Kp0, 2.0 * Kp0)
+
+        ki = np.clip(ki, 0.2 * Ki0, 2.5 * Ki0)
+
+        kd = np.clip(kd, 0.3 * Kd0, 3.0 * Kd0)
+
+        return kp, ki, kd
+
     # Таблицы результатов
     pid_clean_results = []
     pid_noise_results = []
@@ -159,6 +203,8 @@ def main():
         omega_snn_arr = []
         u_pid_arr = []
         u_snn_arr = []
+        error_hist = deque([0.0] * HISTORY, maxlen=HISTORY)
+        control_hist = deque([0.0] * HISTORY, maxlen=HISTORY)
 
         # Начальная уставка
         r = references[experiment_id]
@@ -175,7 +221,9 @@ def main():
             error_pid = (r - omega_pid_meas)
             d_error_pid = (error_pid - prev_error_pid) / dt
             integral_pid += (error_pid * dt)
+            integral_pid = np.clip(integral_pid, -10, 10)
 
+            Kp, Ki, Kd = adaptive_pid(error_pid, d_error_pid, integral_pid)
             u_pid = (Kp * error_pid + Ki * integral_pid + Kd * d_error_pid)
             u_pid = np.clip(u_pid,-u_max,u_max)
 
@@ -192,8 +240,9 @@ def main():
             error_snn = (r - omega_snn_meas)
             d_error_snn = (error_snn - prev_error_snn) / dt
             integral_snn += (error_snn * dt)
+            integral_snn = np.clip(integral_snn, -10, 10)
 
-            x_nn = np.array([[error_snn, d_error_snn, integral_snn, omega_snn_meas, r]])
+            x_nn = np.array([[error_snn, d_error_snn, integral_snn, r, *error_hist, *control_hist]])
             x_nn_norm = (x_nn - x_mean) / x_std
 
             # Encoder
@@ -220,6 +269,8 @@ def main():
             domega_snn = (cm * phi * Ia_snn - B * omega_snn - M_load) / J
             omega_snn += (dt * domega_snn)
             prev_error_snn = (error_snn)
+            error_hist.append(error_snn)
+            control_hist.append(u_snn)
 
             # Сохранение
             time_arr.append(t)
@@ -380,7 +431,7 @@ def main():
             axes[i].legend()
 
     plt.tight_layout()
-    plt.savefig("clean_tracking.png", dpi=300)
+    plt.savefig("tracking.png", dpi=300)
     plt.show()
 
     # График управляющих сигналов без шума
@@ -405,7 +456,7 @@ def main():
         if i == 0:
             axes[i].legend()
     plt.tight_layout()
-    plt.savefig("clean_control.png", dpi=300)
+    plt.savefig("all_control.png", dpi=300)
     plt.show()
 
     # График скоростей с шумом
@@ -434,9 +485,6 @@ def main():
         axes[i].grid(True)
         if i == 0:
             axes[i].legend()
-    plt.tight_layout()
-    plt.savefig("noise_tracking.png", dpi=300)
-    plt.show()
 
     # График управляющих сигналов с шумом
     fig, axes = plt.subplots(5, 2, figsize=(14, 16))
@@ -459,7 +507,7 @@ def main():
         if i == 0:
             axes[i].legend()
     plt.tight_layout()
-    plt.savefig("noise_control.png", dpi=300)
+    plt.savefig("all_control.png", dpi=300)
     plt.show()
 
 if __name__ == "__main__":
