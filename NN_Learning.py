@@ -5,6 +5,7 @@ from knp_ann2snn.altainn import TernaryDense, heaviside, Clip
 from keras.models import Sequential, load_model
 from keras.layers import Dense
 from keras.callbacks import ModelCheckpoint, EarlyStopping
+from collections import deque
 
 def main():
     #Параметры ДПТ
@@ -27,11 +28,6 @@ def main():
     #Ограничение напряжения
     u_max = 10.0
 
-    #"Учитель" ПИД
-    Kp_true = 2.0 #Пропорциональный коэффициент
-    Ki_true = 0.5 #Интегральный коэффициент
-    Kd_true = 0.01 #Дифференциальный коэффициент
-
     #Генерация данных
     omega = 0.0 #Текущая угловая скорость
     integral = 0.0 #Интеграл ошибки
@@ -43,67 +39,102 @@ def main():
     data_X = []
     data_Y = []
 
-    #Текущие параметры ДПТ
-    J_curr = J
-    B_curr = B
-    R_curr = R
-    M_load_curr = M_load
-
     #Уровень шума
     noise_std = 0.0
+
+    #Окно признаков
+    HISTORY = 10
+
+    def adaptive_pid(error, d_error, integral, Kp0 = 2.0, Ki0 = 0.5, Kd0 = 0.01):
+        abs_e = abs(error)
+        abs_de = abs(d_error)
+        abs_i = abs(integral)
+
+        # Пропорциональный коэффициент
+        # Большая ошибка -> увеличить Kp
+        kp = Kp0 * (1.0 + 0.7 * np.tanh(abs_e))
+
+        # Если начинается колебание, немного уменьшаем Kp
+        kp *= (1.0 + 0.3 * np.tanh(abs_e))
+        kp *= (1.0 - 0.2 * np.tanh(abs_de / 50))
+
+        # уменьшаем Kp возле уставки
+        if error * d_error < 0:
+            kp *= 0.7
+
+        # Интегральный коэффициент
+        # Чем больше накопленная ошибка, тем сильнее интегратор.
+        ki = Ki0 * (1.0 + 0.5 * np.tanh(abs_i))
+
+        # При быстром изменении ошибки уменьшаем интегратор
+        ki /= (1.0 + 0.4 * np.tanh(abs_de))
+
+        # защита от разгона интегратора
+        if abs(error) > 0.5:
+            ki *= 0.5
+
+        # Дифференциальный коэффициент
+        # Если ошибка быстро меняется, увеличиваем демпфирование.
+        kd = Kd0 * (1.0 + 1.2 * np.tanh(abs_de))
+
+        # Если ошибка практически исчезла, дифференциальная часть почти не нужна.
+        kd *= (0.5 + 0.5 * np.tanh(abs_e))
+
+        # Ограничения
+        kp = np.clip(kp, 0.5 * Kp0, 2.0 * Kp0)
+
+        ki = np.clip(ki, 0.2 * Ki0, 2.5 * Ki0)
+
+        kd = np.clip(kd, 0.3 * Kd0, 3.0 * Kd0)
+
+        return kp, ki, kd
 
     #Генерация массива данных
     for i in range(N):
 
-        #Смена скорости каждые 1000 шагов
-        if i % 2000 == 0:
+        #Смена скорости каждые 4000 шагов
+        if i % 4000 == 0:
             r = np.random.uniform(0.2, 2)
-
-            # Новый ПИД
-            Kp = np.random.uniform(1.5, 3.0)
-            Ki = np.random.uniform(0.2, 0.8)
-            Kd = np.random.uniform(0.005, 0.03)
-
-            # Новый двигатель
-            J_curr = np.random.uniform(0.08, 0.12)
-            B_curr = np.random.uniform(0.2, 0.4)
-            R_curr = np.random.uniform(1.0, 1.4)
-
-            # Случайная нагрузка
-            M_load_curr = np.random.uniform(0.0, 0.2)
 
             # Шум датчика
             noise_std = np.random.uniform(0.0, 0.05)
 
+            integral = 0.0
+            prev_error = 0.0
+            error_hist = deque([0.0] * HISTORY, maxlen=HISTORY)
+            control_hist = deque([0.0] * HISTORY, maxlen=HISTORY)
+
         # Измеренная скорость
         omega_meas = omega + np.random.normal(0, noise_std)
-    
+
         # Ошибка
         error = r - omega_meas
-    
+
         # Производная ошибки
         d_error = (error - prev_error) / dt
-    
+
         # Интеграл
         integral += error * dt
-    
+        integral = np.clip(integral, -10, 10)
+
         # Учитель-ПИД
+        Kp, Ki, Kd = adaptive_pid(error, d_error, integral)
+
         u = (Kp * error + Ki * integral + Kd * d_error)
-    
         u = np.clip(u, -u_max, u_max)
-    
-        # Электрическая модель
-        Ia = (u - ce * phi * omega) / R_curr
-    
-        # Механическая модель
-        domega = (cm * phi * Ia - B_curr * omega - M_load_curr) / J_curr
-    
+
+        #Электрическая часть
+        Ia = (u - ce * phi * omega) / R
+        domega = (cm * phi * Ia - B * omega - M_load) / J
         omega += dt * domega
-    
-        data_X.append([error, d_error, integral, omega_meas, r])
-    
+
+        data_X.append([error, d_error, integral, r, *error_hist, *control_hist])
+
         data_Y.append([u])
-    
+
+        error_hist.append(error)
+        control_hist.append(u)
+
         prev_error = error
 
     data_X = np.array(data_X)
@@ -134,22 +165,22 @@ def main():
     #Модель нейросети
     # Encoder (функция активации сигмоида, размер входа - 5, размер выхода - 16)
     encoder = Sequential([
-        Dense(32, activation="sigmoid", input_shape=(5,))
+        Dense(64, activation="sigmoid", input_shape=(24,))
     ])
 
     # SNN (функция активации хевисайда, размер входа - 16, размер выхода - 16)
     snn = Sequential([
         TernaryDense(
-            32,
+            64,
             activation=heaviside,
-            input_shape=(32,),
+            input_shape=(64,),
             use_bias=False
         )
     ])
 
     # Decoder (функция активации , размер входа - 16, размер выхода - 1)
     decoder = Sequential([
-        Dense(1, activation="linear", input_shape=(32,))
+        Dense(1, activation="linear", input_shape=(64,))
     ])
 
     model = Sequential([encoder, snn, decoder])
@@ -210,13 +241,14 @@ def main():
     prev_error_pid = 0.0
 
     for i in range(len(x_test)):
-        r = x_test[i, 4]  # целевая скорость
+        r = x_test[i, 3]  # целевая скорость
 
         # ПИД
         error_pid = r - omega_pid_curr
         d_error_pid = (error_pid - prev_error_pid) / dt
         integral_pid += error_pid * dt
 
+        Kp_true, Ki_true, Kd_true = adaptive_pid(error_pid, d_error_pid, integral_pid)
         u_pid = Kp_true * error_pid + Ki_true * integral_pid + Kd_true * d_error_pid
 
         u_pid = np.clip(u_pid, -u_max, u_max)
