@@ -431,7 +431,7 @@ def main():
             axes[i].legend()
 
     plt.tight_layout()
-    plt.savefig("tracking.png", dpi=300)
+    plt.savefig("clean_tracking.png", dpi=300)
     plt.show()
 
     # График управляющих сигналов без шума
@@ -456,7 +456,7 @@ def main():
         if i == 0:
             axes[i].legend()
     plt.tight_layout()
-    plt.savefig("all_control.png", dpi=300)
+    plt.savefig("clean_control.png", dpi=300)
     plt.show()
 
     # График скоростей с шумом
@@ -485,6 +485,9 @@ def main():
         axes[i].grid(True)
         if i == 0:
             axes[i].legend()
+    plt.tight_layout()
+    plt.savefig("noise_tracking.png", dpi=300)
+    plt.show()
 
     # График управляющих сигналов с шумом
     fig, axes = plt.subplots(5, 2, figsize=(14, 16))
@@ -507,7 +510,7 @@ def main():
         if i == 0:
             axes[i].legend()
     plt.tight_layout()
-    plt.savefig("all_control.png", dpi=300)
+    plt.savefig("noise_control.png", dpi=300)
     plt.show()
 
 if __name__ == "__main__":
