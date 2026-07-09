@@ -94,7 +94,12 @@ def main():
 
         #Смена скорости каждые 4000 шагов
         if i % 4000 == 0:
-            r = np.random.uniform(0.2, 2)
+            bins = np.linspace(0.2, 2.0, 11)
+
+            left = bins[np.random.randint(0, 10)]
+            right = left + 0.18
+
+            r = np.random.uniform(left, right)
 
             # Шум датчика
             noise_std = np.random.uniform(0.0, 0.05)
